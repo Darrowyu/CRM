@@ -1093,4 +1093,10 @@ export const en = {
     sysconfig_storage_max: 'Max File Size (MB)',
     sysconfig_storage_path: 'Storage Path',
     sysconfig_save_all: 'Save All Config',
+
+    // Customer Source
+    source_website: 'Website',
+    source_exhibition: 'Exhibition',
+    source_referral: 'Referral',
+    source_other: 'Other',
 };

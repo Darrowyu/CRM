@@ -1093,4 +1093,10 @@ export const zh = {
     sysconfig_storage_max: '最大文件大小 (MB)',
     sysconfig_storage_path: '存储路径',
     sysconfig_save_all: '保存所有配置',
+
+    // 客户来源
+    source_website: '官网',
+    source_exhibition: '展会',
+    source_referral: '转介绍',
+    source_other: '其他',
 };

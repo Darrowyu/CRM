@@ -10,10 +10,12 @@ import { useLanguage } from '../../contexts/LanguageContext';
 const PaymentManager: React.FC = () => {
   const { message } = App.useApp();
   const { t } = useLanguage();
-  const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  
+  // 使用useMemo缓存STATUS_MAP
+  const STATUS_MAP: Record<string, { label: string; color: string }> = useMemo(() => ({
     pending: { label: t('payment_status_pending'), color: 'default' }, partial: { label: t('payment_status_partial'), color: 'processing' },
     completed: { label: t('payment_status_completed'), color: 'success' }, overdue: { label: t('payment_status_overdue'), color: 'error' }
-  };
+  }), [t]);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const [stats, setStats] = useState<PaymentStats | null>(null);
   const [overduePlans, setOverduePlans] = useState<PaymentPlan[]>([]);
@@ -71,34 +73,35 @@ const PaymentManager: React.FC = () => {
     } catch { message.error(t('payment_record_failed')); }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try { await paymentService.delete(id); message.success(t('msg_delete_success')); loadData(); } catch { message.error(t('msg_delete_error')); }
-  };
+  }, [message, t, loadData]);
 
-  const handleBatchDelete = async () => {
+  const handleBatchDelete = useCallback(async () => {
     if (!selectedRowKeys.length) return;
     try { const result = await paymentService.batchDelete(selectedRowKeys as string[]); message.success(t('msg_batch_delete_success').replace('{count}', String(result.deleted))); loadData(); }
     catch { message.error(t('msg_operation_error')); }
-  };
+  }, [selectedRowKeys, message, t, loadData]);
 
-  const openRecordModal = (plan: PaymentPlan) => {
+  const openRecordModal = useCallback((plan: PaymentPlan) => {
     setSelectedPlan(plan);
     setRecordModalVisible(true);
     setTimeout(() => recordForm.setFieldsValue({ amount: plan.plan_amount - plan.actual_amount, date: dayjs() }), 0);
-  };
+  }, [recordForm]);
 
-  const openEdit = (plan: PaymentPlan) => {
+  const openEdit = useCallback((plan: PaymentPlan) => {
     setEditingPlan(plan);
     setModalVisible(true);
     loadCustomers();
     setTimeout(() => form.setFieldsValue({ ...plan, plan_date: plan.plan_date ? dayjs(plan.plan_date) : undefined }), 0);
-  };
+  }, [form]);
 
-  const openDetail = (plan: PaymentPlan) => { setSelectedPlan(plan); setDetailOpen(true); };
+  const openDetail = useCallback((plan: PaymentPlan) => { setSelectedPlan(plan); setDetailOpen(true); }, []);
 
-  const isOverdue = (plan: PaymentPlan) => plan.status !== 'completed' && dayjs(plan.plan_date).isBefore(dayjs()); // 判断是否逾期
+  const isOverdue = useCallback((plan: PaymentPlan) => plan.status !== 'completed' && dayjs(plan.plan_date).isBefore(dayjs()), []); // 判断是否逾期
 
-  const columns = [
+  // 使用useMemo缓存表格列定义
+  const columns = useMemo(() => [
     { title: t('payment_customer'), dataIndex: 'customer_name', key: 'customer_name', ellipsis: true },
     { title: t('payment_plan_amount'), dataIndex: 'plan_amount', key: 'plan_amount', sorter: (a: PaymentPlan, b: PaymentPlan) => a.plan_amount - b.plan_amount,
       render: (v: number) => <span style={{ fontWeight: 600 }}>¥{v?.toLocaleString()}</span> },
@@ -122,9 +125,9 @@ const PaymentManager: React.FC = () => {
         <Popconfirm title={t('msg_confirm_delete')} onConfirm={() => handleDelete(r.id)}><Button type="text" size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
       </Space>
     )}
-  ];
+  ], [t, STATUS_MAP, isOverdue, openDetail, openRecordModal, openEdit, handleDelete]);
 
-  const rowSelection = { selectedRowKeys, onChange: (keys: React.Key[]) => setSelectedRowKeys(keys) };
+  const rowSelection = useMemo(() => ({ selectedRowKeys, onChange: (keys: React.Key[]) => setSelectedRowKeys(keys) }), [selectedRowKeys]);
 
   return (
     <div style={{ padding: 24 }}>

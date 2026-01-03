@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Row, Col, Table, Tag, Statistic, Progress, Button, App, Tabs, Space, Alert, Select, Input } from 'antd';
 import { TrophyOutlined, RiseOutlined, BarChartOutlined, ReloadOutlined, FunnelPlotOutlined, AlertOutlined, SearchOutlined, CrownOutlined } from '@ant-design/icons';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, FunnelChart, Funnel, LabelList } from 'recharts';
@@ -26,13 +26,14 @@ const AnalyticsPanel: React.FC = () => {
   const [gradeFilter, setGradeFilter] = useState<string>('');
   const [searchText, setSearchText] = useState('');
 
-  const STAGE_NAMES: Record<string, string> = {
+  // 使用useMemo缓存STAGE_NAMES
+  const STAGE_NAMES: Record<string, string> = useMemo(() => ({
     prospecting: t('stage_prospecting'),
     qualification: t('stage_qualification'),
     proposal: t('stage_proposal'),
     negotiation: t('stage_negotiation'),
     closed_won: t('stage_closed_won')
-  };
+  }), [t]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -59,9 +60,11 @@ const AnalyticsPanel: React.FC = () => {
     catch { message.error(t('error')); }
   };
 
-  const filteredScores = scores.filter(s => (!gradeFilter || s.grade === gradeFilter) && (!searchText || s.company_name?.toLowerCase().includes(searchText.toLowerCase())));
+  // 使用useMemo缓存筛选结果
+  const filteredScores = useMemo(() => scores.filter(s => (!gradeFilter || s.grade === gradeFilter) && (!searchText || s.company_name?.toLowerCase().includes(searchText.toLowerCase()))), [scores, gradeFilter, searchText]);
 
-  const scoreColumns = [
+  // 使用useMemo缓存表格列定义
+  const scoreColumns = useMemo(() => [
     { title: t('cust_company'), dataIndex: 'company_name', key: 'company_name', render: (v: string) => v || '-' },
     { title: t('analytics_grade'), dataIndex: 'grade', key: 'grade', width: 100, render: (g: string) => <Tag color={GRADE_COLORS[g]}>{g}{t('agent_grade_customer')}</Tag> },
     { title: 'R', dataIndex: 'recency_score', key: 'recency_score', width: 60, sorter: (a: CustomerScore, b: CustomerScore) => a.recency_score - b.recency_score },
@@ -71,18 +74,19 @@ const AnalyticsPanel: React.FC = () => {
       title: t('analytics_score'), dataIndex: 'total_score', key: 'total_score', width: 120, sorter: (a: CustomerScore, b: CustomerScore) => a.total_score - b.total_score,
       render: (s: number) => <Progress percent={Math.round((s / 15) * 100)} size="small" strokeColor={s >= 13 ? '#52c41a' : s >= 10 ? '#1890ff' : s >= 7 ? '#faad14' : '#ff4d4f'} />
     }
-  ];
+  ], [t]);
 
-  const rankingColumns = [
+  const rankingColumns = useMemo(() => [
     { title: t('dash_rank'), dataIndex: 'rank', key: 'rank', width: 60, render: (v: number) => v <= 3 ? <CrownOutlined style={{ color: v === 1 ? '#ffd700' : v === 2 ? '#c0c0c0' : '#cd7f32', fontSize: 18 }} /> : v },
     { title: t('dash_sales_rep'), dataIndex: 'user_name', key: 'user_name' },
     { title: t('dash_sales_amount'), dataIndex: 'amount', key: 'amount', render: (v: number) => `¥${v.toLocaleString()}` },
     { title: t('target_title'), dataIndex: 'target', key: 'target', render: (v: number) => `¥${v.toLocaleString()}` },
     { title: t('target_progress'), dataIndex: 'rate', key: 'rate', render: (v: number) => <Progress percent={Math.min(v, 100)} size="small" status={v >= 100 ? 'success' : v >= 80 ? 'active' : 'exception'} /> }
-  ];
+  ], [t]);
 
-  const pieData = distribution.map(d => ({ name: `${d.grade}`, value: d.count, fill: GRADE_COLORS[d.grade] }));
-  const funnelData = funnel.map((f, i) => ({ name: STAGE_NAMES[f.stage] || f.stage, value: f.count, amount: f.amount, rate: f.conversion_rate, fill: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }));
+  // 使用useMemo缓存图表数据
+  const pieData = useMemo(() => distribution.map(d => ({ name: `${d.grade}`, value: d.count, fill: GRADE_COLORS[d.grade] })), [distribution]);
+  const funnelData = useMemo(() => funnel.map((f, i) => ({ name: STAGE_NAMES[f.stage] || f.stage, value: f.count, amount: f.amount, rate: f.conversion_rate, fill: FUNNEL_COLORS[i % FUNNEL_COLORS.length] })), [funnel, STAGE_NAMES]);
 
   return (
     <div style={{ padding: 24 }}>

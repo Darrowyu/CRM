@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Row, Col, Typography, Spin, App, Progress, Tag, Table, Tooltip } from 'antd';
-import { DollarOutlined, UserAddOutlined, ThunderboltOutlined, FileTextOutlined, CheckSquareOutlined, AimOutlined, ArrowUpOutlined, ArrowDownOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Card, Row, Col, Typography, Spin, App, Progress, Tag, Table, Tooltip, Button } from 'antd';
+import { DollarOutlined, UserAddOutlined, ThunderboltOutlined, FileTextOutlined, CheckSquareOutlined, AimOutlined, ArrowUpOutlined, ArrowDownOutlined, ClockCircleOutlined, WarningOutlined, ReloadOutlined } from '@ant-design/icons';
 import { XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, ResponsiveContainer, Legend } from 'recharts';
 import { dashboardService, DashboardStats, FunnelStats, SalesTrend, ConversionStats, TaskItem, FollowUpItem, ContractItem, RankingItem } from '../../services/dashboardService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,21 +25,28 @@ const Dashboard: React.FC = () => {
   const [contracts, setContracts] = useState<ContractItem[]>([]);
   const [ranking, setRanking] = useState<RankingItem[]>([]);
 
-  const STAGE_NAMES: Record<string, string> = {
+  const STAGE_NAMES = useMemo((): Record<string, string> => ({
     prospecting: t('stage_prospecting'),
     qualification: t('stage_qualification'),
     proposal: t('stage_proposal'),
     negotiation: t('stage_negotiation'),
     closed_won: t('stage_closed_won')
-  };
+  }), [t]);
 
-  const TYPE_NAMES: Record<string, string> = {
+  const TYPE_NAMES = useMemo((): Record<string, string> => ({
     call: t('task_type_call'),
     visit: t('task_type_visit'),
     email: t('task_type_email'),
     meeting: t('task_type_meeting'),
     other: t('task_type_other')
-  };
+  }), [t]);
+
+  const SOURCE_NAMES = useMemo((): Record<string, string> => ({
+    website: t('source_website'),
+    exhibition: t('source_exhibition'),
+    referral: t('source_referral'),
+    other: t('source_other')
+  }), [t]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -56,21 +63,26 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const salesChange = stats && stats.lastMonthSales > 0 ? Math.round(((stats.monthlySales - stats.lastMonthSales) / stats.lastMonthSales) * 100) : 0;
-  const pieData = funnelData.filter(f => f.stage !== 'closed_lost').map(f => ({ name: STAGE_NAMES[f.stage] || f.stage, value: f.count, fill: STAGE_COLORS[f.stage] || '#8c8c8c' }));
+  const salesChange = useMemo(() => stats && stats.lastMonthSales > 0 ? Math.round(((stats.monthlySales - stats.lastMonthSales) / stats.lastMonthSales) * 100) : 0, [stats]);
+  const pieData = useMemo(() => funnelData.filter(f => f.stage !== 'closed_lost').map(f => ({ name: STAGE_NAMES[f.stage] || f.stage, value: f.count, fill: STAGE_COLORS[f.stage] || '#8c8c8c' })), [funnelData, STAGE_NAMES]);
+  const translatedConversionData = useMemo(() => conversionData.map(item => ({ ...item, source: SOURCE_NAMES[item.source] || item.source })), [conversionData, SOURCE_NAMES]);
 
-  const kpiData = [
-    { label: t('dash_monthly_sales'), value: stats ? `¥${stats.monthlySales.toLocaleString()}` : '-', icon: <DollarOutlined />, color: '#52c41a', bg: '#f6ffed', suffix: salesChange !== 0 ? <Text type={salesChange > 0 ? 'success' : 'danger'} style={{ fontSize: 12 }}>{salesChange > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}{Math.abs(salesChange)}%</Text> : null },
+  const kpiData = useMemo(() => [
+    { label: t('dash_monthly_sales'), value: stats ? `¥${stats.monthlySales.toLocaleString()}` : '-', icon: <DollarOutlined />, color: '#52c41a', bg: '#f6ffed', suffix: salesChange !== 0 ? <Text type={salesChange > 0 ? 'success' : 'danger'} style={{ fontSize: 12 }}>{salesChange > 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />} {Math.abs(salesChange)}%</Text> : null },
     { label: t('dash_monthly_payments'), value: stats ? `¥${stats.monthlyPayments.toLocaleString()}` : '-', icon: <DollarOutlined />, color: '#1890ff', bg: '#e6f7ff' },
     { label: t('dash_new_customers'), value: stats ? `+${stats.newCustomers}` : '-', icon: <UserAddOutlined />, color: '#722ed1', bg: '#f9f0ff' },
     { label: t('dash_active_opportunities'), value: stats?.activeOpportunities || 0, icon: <ThunderboltOutlined />, color: '#fa8c16', bg: '#fff7e6' },
-    { label: t('dash_pending_tasks'), value: stats?.pendingTasks || 0, icon: <CheckSquareOutlined />, color: '#13c2c2', bg: '#e6fffb', suffix: stats?.overdueTasks ? <Text type="danger" style={{ fontSize: 12 }}><WarningOutlined /> {stats.overdueTasks}{t('dash_overdue')}</Text> : null },
+    { label: t('dash_pending_tasks'), value: stats?.pendingTasks || 0, icon: <CheckSquareOutlined />, color: '#13c2c2', bg: '#e6fffb', suffix: stats?.overdueTasks ? <Text type="danger" style={{ fontSize: 12 }}><WarningOutlined /> {stats.overdueTasks} {t('dash_overdue')}</Text> : null },
     { label: t('dash_target_progress'), value: `${stats?.targetRate || 0}%`, icon: <AimOutlined />, color: '#eb2f96', bg: '#fff0f6', extra: <Progress percent={stats?.targetRate || 0} size="small" showInfo={false} strokeColor="#eb2f96" /> },
-  ];
+  ], [stats, salesChange, t]);
 
   return (
     <Spin spinning={loading}>
       <div style={{ padding: '0 0 24px' }}>
+        {/* 刷新按钮 */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <Button icon={<ReloadOutlined />} onClick={loadData} loading={loading}>{t('refresh')}</Button>
+        </div>
         {/* KPI卡片 */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           {kpiData.map((stat, idx) => (
@@ -140,7 +152,7 @@ const Dashboard: React.FC = () => {
           <Col xs={24} lg={12}>
             <Card title={<Title level={5} style={{ margin: 0 }}>{t('dash_source_conversion')}</Title>} size="small">
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={conversionData} layout="vertical">
+                <BarChart data={translatedConversionData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f0f0f0" />
                   <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#8c8c8c', fontSize: 12 }} />
                   <YAxis type="category" dataKey="source" axisLine={false} tickLine={false} tick={{ fill: '#8c8c8c', fontSize: 12 }} width={80} />

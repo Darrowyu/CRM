@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Tag, Typography, Alert, Badge, Spin, Modal, Form, Input, InputNumber, Select, DatePicker, Drawer, Descriptions, App, Popconfirm, Space, Empty, Collapse, Progress, Row, Col, Tabs, List, Timeline } from 'antd';
 import { ThunderboltOutlined, SyncOutlined, WarningOutlined, PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined, HolderOutlined, CheckCircleOutlined, CloseCircleOutlined, PhoneOutlined, MailOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DroppableStateSnapshot, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
@@ -53,11 +53,12 @@ const OpportunityBoard: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const totalPipelineValue = summary.reduce((acc, s) => acc + Number(s.total_amount), 0);
-  const totalActiveCount = ACTIVE_STAGES.reduce((acc, s) => acc + opportunities.filter(o => o.stage === s).length, 0);
-  const closedWonCount = opportunities.filter(o => o.stage === 'closed_won').length;
-  const closedLostCount = opportunities.filter(o => o.stage === 'closed_lost').length;
-  const closedWonAmount = opportunities.filter(o => o.stage === 'closed_won').reduce((acc, o) => acc + (o.amount || 0), 0);
+  // 使用useMemo缓存统计值
+  const totalPipelineValue = useMemo(() => summary.reduce((acc, s) => acc + Number(s.total_amount), 0), [summary]);
+  const totalActiveCount = useMemo(() => ACTIVE_STAGES.reduce((acc, s) => acc + opportunities.filter(o => o.stage === s).length, 0), [opportunities]);
+  const closedWonCount = useMemo(() => opportunities.filter(o => o.stage === 'closed_won').length, [opportunities]);
+  const closedLostCount = useMemo(() => opportunities.filter(o => o.stage === 'closed_lost').length, [opportunities]);
+  const closedWonAmount = useMemo(() => opportunities.filter(o => o.stage === 'closed_won').reduce((acc, o) => acc + (o.amount || 0), 0), [opportunities]);
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -162,20 +163,21 @@ const OpportunityBoard: React.FC = () => {
     finally { setSubmitting(false); }
   };
 
-  const FOLLOW_TYPE_MAP: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
+  // 使用useMemo缓存映射对象
+  const FOLLOW_TYPE_MAP: Record<string, { icon: React.ReactNode; color: string; label: string }> = useMemo(() => ({
     call: { icon: <PhoneOutlined />, color: '#1890ff', label: t('task_type_call') },
     visit: { icon: <UserOutlined />, color: '#52c41a', label: t('task_type_visit') },
     email: { icon: <MailOutlined />, color: '#faad14', label: t('task_type_email') },
     other: { icon: <FileTextOutlined />, color: '#8c8c8c', label: t('task_type_other') },
-  };
+  }), [t]);
 
-  const QUOTE_STATUS_MAP: Record<string, { color: string; label: string }> = {
+  const QUOTE_STATUS_MAP: Record<string, { color: string; label: string }> = useMemo(() => ({
     draft: { color: 'default', label: t('quote_status_draft') },
     pending_manager: { color: 'processing', label: t('quote_status_pending') },
     approved: { color: 'success', label: t('quote_status_approved') },
     rejected: { color: 'error', label: t('quote_status_rejected') },
     sent: { color: 'cyan', label: t('quote_status_sent') },
-  };
+  }), [t]);
 
   const renderOpportunityCard = (op: Opportunity, provided: DraggableProvided, snapshot: DraggableStateSnapshot, isClosed: boolean) => (
     <div ref={provided.innerRef} {...provided.draggableProps} style={{ ...provided.draggableProps.style }}>

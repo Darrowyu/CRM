@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Row, Col, Progress, Statistic, Table, Select, Button, Modal, Form, InputNumber, App, Tabs, Tag } from 'antd';
 import { TrophyOutlined, TeamOutlined, UserOutlined, BarChartOutlined, CrownOutlined } from '@ant-design/icons';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -6,6 +6,10 @@ import { targetService } from '../../services/targetService';
 import { SalesTarget, TargetWithActuals } from '../../types/tasks';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+
+// 提取到组件外的常量函数，避免重复创建
+const getRateColor = (rate: number): string => rate >= 100 ? '#52c41a' : rate >= 80 ? '#1890ff' : rate >= 50 ? '#faad14' : '#ff4d4f';
+const CROWN_COLORS = ['#ffd700', '#c0c0c0', '#cd7f32'];
 
 const SalesTargetPanel: React.FC = () => {
   const { message } = App.useApp();
@@ -66,27 +70,27 @@ const SalesTargetPanel: React.FC = () => {
     } catch { message.error(t('error')); }
   };
 
-  const openSetModal = (type: 'user' | 'team', userId?: string) => {
+  const openSetModal = useCallback((type: 'user' | 'team', userId?: string) => {
     setModalType(type);
     setSelectedUserId(userId || '');
     form.resetFields();
     setModalVisible(true);
-  };
+  }, [form]);
 
-  const openBatchModal = () => {
+  const openBatchModal = useCallback(() => {
     if (teamData?.userTargets) {
       batchForm.setFieldsValue({ targets: teamData.userTargets.map(tgt => ({ user_id: tgt.user_id, user_name: tgt.user_name, target_amount: tgt.target_amount || 0 })) });
     }
     setBatchModalVisible(true);
-  };
+  }, [teamData?.userTargets, batchForm]);
 
-  const months = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}` }));
-  const years = Array.from({ length: 5 }, (_, i) => ({ value: new Date().getFullYear() - 2 + i, label: `${new Date().getFullYear() - 2 + i}` }));
+  // 使用useMemo缓存月份和年份选项
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}` })), []);
+  const years = useMemo(() => Array.from({ length: 5 }, (_, i) => ({ value: new Date().getFullYear() - 2 + i, label: `${new Date().getFullYear() - 2 + i}` })), []);
 
-  const getRateColor = (rate: number) => rate >= 100 ? '#52c41a' : rate >= 80 ? '#1890ff' : rate >= 50 ? '#faad14' : '#ff4d4f';
-
-  const userColumns = [
-    { title: t('dash_rank'), key: 'rank', width: 60, render: (_: unknown, __: unknown, idx: number) => idx < 3 ? <CrownOutlined style={{ color: ['#ffd700', '#c0c0c0', '#cd7f32'][idx], fontSize: 18 }} /> : idx + 1 },
+  // 使用useMemo缓存表格列定义
+  const userColumns = useMemo(() => [
+    { title: t('dash_rank'), key: 'rank', width: 60, render: (_: unknown, __: unknown, idx: number) => idx < 3 ? <CrownOutlined style={{ color: CROWN_COLORS[idx], fontSize: 18 }} /> : idx + 1 },
     { title: t('dash_sales_rep'), dataIndex: 'user_name', key: 'user_name' },
     { title: t('target_title'), dataIndex: 'target_amount', key: 'target_amount', render: (v: number) => `¥${(v || 0).toLocaleString()}`, sorter: (a: TargetWithActuals, b: TargetWithActuals) => (a.target_amount || 0) - (b.target_amount || 0) },
     { title: t('target_actual'), dataIndex: 'actual_amount', key: 'actual_amount', render: (v: number) => `¥${(v || 0).toLocaleString()}`, sorter: (a: TargetWithActuals, b: TargetWithActuals) => (a.actual_amount || 0) - (b.actual_amount || 0) },
@@ -97,15 +101,15 @@ const SalesTargetPanel: React.FC = () => {
       }
     },
     ...(isManager ? [{ title: t('actions'), key: 'action', width: 80, render: (_: unknown, r: TargetWithActuals) => <Button type="link" size="small" onClick={() => openSetModal('user', r.user_id)}>{t('target_set')}</Button> }] : [])
-  ];
+  ], [t, isManager, openSetModal]);
 
-  const rankingColumns = [
-    { title: t('dash_rank'), key: 'rank', width: 60, render: (_: unknown, __: unknown, idx: number) => idx < 3 ? <CrownOutlined style={{ color: ['#ffd700', '#c0c0c0', '#cd7f32'][idx], fontSize: 18 }} /> : idx + 1 },
+  const rankingColumns = useMemo(() => [
+    { title: t('dash_rank'), key: 'rank', width: 60, render: (_: unknown, __: unknown, idx: number) => idx < 3 ? <CrownOutlined style={{ color: CROWN_COLORS[idx], fontSize: 18 }} /> : idx + 1 },
     { title: t('dash_sales_rep'), dataIndex: 'user_name', key: 'user_name' },
     { title: t('target_progress'), dataIndex: 'rate', key: 'rate', render: (v: number) => <Tag color={getRateColor(v)}>{v}%</Tag> },
     { title: t('target_title'), dataIndex: 'target', key: 'target', render: (v: number) => `¥${(v || 0).toLocaleString()}` },
     { title: t('target_actual'), dataIndex: 'actual', key: 'actual', render: (v: number) => `¥${(v || 0).toLocaleString()}` },
-  ];
+  ], [t]);
 
   return (
     <div>

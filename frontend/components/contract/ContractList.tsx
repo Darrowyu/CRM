@@ -23,13 +23,14 @@ const ContractList: React.FC = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [form] = Form.useForm();
 
-  const STATUS_MAP: Record<string, { label: string; color: string }> = {
+  // 使用useMemo缓存STATUS_MAP
+  const STATUS_MAP: Record<string, { label: string; color: string }> = useMemo(() => ({
     draft: { label: t('quote_status_draft'), color: 'default' },
     pending: { label: t('quote_status_pending'), color: 'processing' },
     active: { label: t('admin_user_active'), color: 'success' },
     expired: { label: t('dash_expiring_contracts'), color: 'error' },
     terminated: { label: t('order_status_cancelled'), color: 'default' }
-  };
+  }), [t]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -66,27 +67,27 @@ const ContractList: React.FC = () => {
     } catch { message.error(t('error')); }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try { await contractService.delete(id); message.success(t('success')); loadData(); } catch { message.error(t('error')); }
-  };
+  }, [message, t, loadData]);
 
-  const handleBatchDelete = async () => {
+  const handleBatchDelete = useCallback(async () => {
     if (!selectedRowKeys.length) return;
     try { await contractService.batchDelete(selectedRowKeys as string[]); message.success(t('success')); loadData(); }
     catch { message.error(t('error')); }
-  };
+  }, [selectedRowKeys, message, t, loadData]);
 
-  const handleBatchStatus = async (status: string) => {
+  const handleBatchStatus = useCallback(async (status: string) => {
     if (!selectedRowKeys.length) return;
     try { await contractService.batchUpdateStatus(selectedRowKeys as string[], status); message.success(t('success')); loadData(); }
     catch { message.error(t('error')); }
-  };
+  }, [selectedRowKeys, message, t, loadData]);
 
-  const handleRenew = async (id: string) => {
+  const handleRenew = useCallback(async (id: string) => {
     try { await contractService.renew(id); message.success(t('success')); loadData(); } catch { message.error(t('error')); }
-  };
+  }, [message, t, loadData]);
 
-  const openEdit = (contract: Contract) => {
+  const openEdit = useCallback((contract: Contract) => {
     setEditingContract(contract);
     setModalVisible(true);
     loadCustomers();
@@ -94,19 +95,20 @@ const ContractList: React.FC = () => {
       ...contract, start_date: contract.start_date ? dayjs(contract.start_date) : undefined,
       end_date: contract.end_date ? dayjs(contract.end_date) : undefined, signed_date: contract.signed_date ? dayjs(contract.signed_date) : undefined
     }), 0);
-  };
+  }, [form]);
 
-  const openDetail = (contract: Contract) => { setSelectedContract(contract); setDetailOpen(true); };
+  const openDetail = useCallback((contract: Contract) => { setSelectedContract(contract); setDetailOpen(true); }, []);
 
-  const getDaysToExpire = (endDate: string) => endDate ? dayjs(endDate).diff(dayjs(), 'day') : null;
-  const getExpireColor = (days: number | null) => days === null ? undefined : days <= 7 ? '#ff4d4f' : days <= 15 ? '#faad14' : days <= 30 ? '#1890ff' : undefined;
+  const getDaysToExpire = useCallback((endDate: string) => endDate ? dayjs(endDate).diff(dayjs(), 'day') : null, []);
+  const getExpireColor = useCallback((days: number | null) => days === null ? undefined : days <= 7 ? '#ff4d4f' : days <= 15 ? '#faad14' : days <= 30 ? '#1890ff' : undefined, []);
 
-  const columns = [
+  // 使用useMemo缓存表格列定义
+  const columns = useMemo(() => [
     { title: t('order_contract'), dataIndex: 'contract_number', key: 'contract_number', width: 140, render: (v: string, r: Contract) => <a onClick={() => openDetail(r)}>{v}</a> },
     { title: t('contract_title'), dataIndex: 'title', key: 'title', ellipsis: true },
     { title: t('cust_company'), dataIndex: 'customer_name', key: 'customer_name', ellipsis: true },
     { title: t('order_amount'), dataIndex: 'amount', key: 'amount', render: (v: number) => <span style={{ color: '#52c41a', fontWeight: 500 }}>¥{(v || 0).toLocaleString()}</span>, sorter: (a: Contract, b: Contract) => (a.amount || 0) - (b.amount || 0) },
-    { title: t('cust_status'), dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={STATUS_MAP[s]?.color}>{STATUS_MAP[s]?.label}</Tag>, filters: Object.entries(STATUS_MAP).map(([k, v]) => ({ text: v.label, value: k })), onFilter: (v: any, r: Contract) => r.status === v },
+    { title: t('cust_status'), dataIndex: 'status', key: 'status', render: (s: string) => <Tag color={STATUS_MAP[s]?.color}>{STATUS_MAP[s]?.label}</Tag>, filters: Object.entries(STATUS_MAP).map(([k, v]) => ({ text: v.label, value: k })), onFilter: (v: unknown, r: Contract) => r.status === v },
     {
       title: t('dash_due_date'), dataIndex: 'end_date', key: 'end_date', sorter: (a: Contract, b: Contract) => dayjs(a.end_date || '9999').unix() - dayjs(b.end_date || '9999').unix(), render: (d: string, r: Contract) => {
         if (!d) return '-';
@@ -125,9 +127,9 @@ const ContractList: React.FC = () => {
         </Space>
       )
     }
-  ];
+  ], [t, STATUS_MAP, openDetail, openEdit, handleRenew, handleDelete, getDaysToExpire, getExpireColor]);
 
-  const rowSelection = { selectedRowKeys, onChange: setSelectedRowKeys };
+  const rowSelection = useMemo(() => ({ selectedRowKeys, onChange: setSelectedRowKeys }), [selectedRowKeys]);
 
   return (
     <div>

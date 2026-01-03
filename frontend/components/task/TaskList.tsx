@@ -9,6 +9,16 @@ import { customerService } from '../../services/customerService';
 import { opportunityService } from '../../services/opportunityService';
 import { useLanguage } from '../../contexts/LanguageContext';
 
+// 类型定义
+type TaskTypeKey = 'follow_up' | 'call' | 'visit' | 'meeting' | 'quote' | 'other';
+type PriorityKey = 'low' | 'medium' | 'high' | 'urgent';
+type StatusKey = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+
+// 颜色常量提取到组件外，避免重复创建
+const TYPE_COLORS: Record<TaskTypeKey, string> = { follow_up: 'blue', call: 'cyan', visit: 'green', meeting: 'purple', quote: 'orange', other: 'default' };
+const PRIORITY_COLORS: Record<PriorityKey, string> = { low: 'default', medium: 'blue', high: 'orange', urgent: 'red' };
+const STATUS_COLORS: Record<StatusKey, string> = { pending: 'default', in_progress: 'processing', completed: 'success', cancelled: 'default' };
+
 const TaskList: React.FC = () => {
   const { message } = App.useApp();
   const { user } = useAuth();
@@ -30,28 +40,29 @@ const TaskList: React.FC = () => {
   const [teamMembers, setTeamMembers] = useState<{ id: string; name: string }[]>([]);
   const [form] = Form.useForm();
 
-  const TASK_TYPE_MAP: Record<string, { label: string; color: string }> = {
-    follow_up: { label: t('task_type_visit'), color: 'blue' },
-    call: { label: t('task_type_call'), color: 'cyan' },
-    visit: { label: t('task_type_visit'), color: 'green' },
-    meeting: { label: t('task_type_meeting'), color: 'purple' },
-    quote: { label: t('nav_quotes'), color: 'orange' },
-    other: { label: t('task_type_other'), color: 'default' }
-  };
+  // 使用useMemo缓存映射对象，仅在t变化时重建
+  const TASK_TYPE_MAP: Record<string, { label: string; color: string }> = useMemo(() => ({
+    follow_up: { label: t('task_type_visit'), color: TYPE_COLORS.follow_up },
+    call: { label: t('task_type_call'), color: TYPE_COLORS.call },
+    visit: { label: t('task_type_visit'), color: TYPE_COLORS.visit },
+    meeting: { label: t('task_type_meeting'), color: TYPE_COLORS.meeting },
+    quote: { label: t('nav_quotes'), color: TYPE_COLORS.quote },
+    other: { label: t('task_type_other'), color: TYPE_COLORS.other }
+  }), [t]);
 
-  const PRIORITY_MAP: Record<string, { label: string; color: string }> = {
-    low: { label: t('task_priority_low'), color: 'default' },
-    medium: { label: t('task_priority_medium'), color: 'blue' },
-    high: { label: t('task_priority_high'), color: 'orange' },
-    urgent: { label: t('task_priority_urgent'), color: 'red' }
-  };
+  const PRIORITY_MAP: Record<string, { label: string; color: string }> = useMemo(() => ({
+    low: { label: t('task_priority_low'), color: PRIORITY_COLORS.low },
+    medium: { label: t('task_priority_medium'), color: PRIORITY_COLORS.medium },
+    high: { label: t('task_priority_high'), color: PRIORITY_COLORS.high },
+    urgent: { label: t('task_priority_urgent'), color: PRIORITY_COLORS.urgent }
+  }), [t]);
 
-  const STATUS_MAP: Record<string, { label: string; color: string }> = {
-    pending: { label: t('task_pending'), color: 'default' },
-    in_progress: { label: t('task_in_progress'), color: 'processing' },
-    completed: { label: t('task_completed'), color: 'success' },
-    cancelled: { label: t('order_status_cancelled'), color: 'default' }
-  };
+  const STATUS_MAP: Record<string, { label: string; color: string }> = useMemo(() => ({
+    pending: { label: t('task_pending'), color: STATUS_COLORS.pending },
+    in_progress: { label: t('task_in_progress'), color: STATUS_COLORS.in_progress },
+    completed: { label: t('task_completed'), color: STATUS_COLORS.completed },
+    cancelled: { label: t('order_status_cancelled'), color: STATUS_COLORS.cancelled }
+  }), [t]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -65,7 +76,7 @@ const TaskList: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const loadFormData = async () => {
+  const loadFormData = useCallback(async () => {
     try {
       const custs = await customerService.getPrivatePool();
       setCustomers(custs);
@@ -74,9 +85,9 @@ const TaskList: React.FC = () => {
         setTeamMembers(members);
       }
     } catch { /* ignore */ }
-  };
+  }, [isManager]);
 
-  const handleCustomerChange = async (customerId: string) => {
+  const handleCustomerChange = useCallback(async (customerId: string) => {
     form.setFieldValue('opportunity_id', undefined);
     if (customerId) {
       try {
@@ -84,7 +95,7 @@ const TaskList: React.FC = () => {
         setOpportunities(opps);
       } catch { setOpportunities([]); }
     } else { setOpportunities([]); }
-  };
+  }, [form]);
 
   const filteredTasks = useMemo(() => tasks.filter(task => {
     const matchType = !typeFilter || task.type === typeFilter;
@@ -101,19 +112,19 @@ const TaskList: React.FC = () => {
     } catch { message.error(t('error')); }
   };
 
-  const handleComplete = async (task: Task) => {
+  const handleComplete = useCallback(async (task: Task) => {
     try { await taskService.update(task.id, { status: TaskStatus.COMPLETED }); message.success(t('success')); loadData(); }
     catch { message.error(t('error')); }
-  };
+  }, [message, t, loadData]);
 
-  const handleStart = async (task: Task) => {
+  const handleStart = useCallback(async (task: Task) => {
     try { await taskService.update(task.id, { status: TaskStatus.IN_PROGRESS }); message.success(t('success')); loadData(); }
     catch { message.error(t('error')); }
-  };
+  }, [message, t, loadData]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     try { await taskService.delete(id); message.success(t('success')); loadData(); } catch { message.error(t('error')); }
-  };
+  }, [message, t, loadData]);
 
   const handleBatchComplete = async () => {
     if (!selectedRowKeys.length) return;
@@ -127,19 +138,21 @@ const TaskList: React.FC = () => {
     catch { message.error(t('error')); }
   };
 
-  const openEdit = (task: Task) => {
+  const openEdit = useCallback((task: Task) => {
     setEditingTask(task);
     setModalVisible(true);
     loadFormData();
     if (task.customer_id) handleCustomerChange(task.customer_id);
     setTimeout(() => form.setFieldsValue({ ...task, due_date: task.due_date ? dayjs(task.due_date) : undefined }), 0);
-  };
+  }, [form, handleCustomerChange, loadFormData]);
 
-  const openDetail = (task: Task) => { setSelectedTask(task); setDetailOpen(true); };
+  const openDetail = useCallback((task: Task) => { setSelectedTask(task); setDetailOpen(true); }, []);
 
-  const isOverdue = (task: Task) => task.due_date && dayjs(task.due_date).isBefore(dayjs()) && !['completed', 'cancelled'].includes(task.status);
+  // 使用useCallback缓存isOverdue函数
+  const isOverdue = useCallback((task: Task) => task.due_date && dayjs(task.due_date).isBefore(dayjs()) && !['completed', 'cancelled'].includes(task.status), []);
 
-  const columns = [
+  // 使用useMemo缓存表格列定义
+  const columns = useMemo(() => [
     {
       title: t('dash_task'), dataIndex: 'title', key: 'title', render: (text: string, record: Task) => (
         <Space direction="vertical" size={0}>
@@ -148,8 +161,8 @@ const TaskList: React.FC = () => {
         </Space>
       )
     },
-    { title: t('dash_type'), dataIndex: 'type', key: 'type', width: 80, render: (type: string) => <Tag color={TASK_TYPE_MAP[type]?.color}>{TASK_TYPE_MAP[type]?.label}</Tag>, filters: Object.entries(TASK_TYPE_MAP).map(([k, v]) => ({ text: v.label, value: k })), onFilter: (v: any, r: Task) => r.type === v },
-    { title: t('dash_priority'), dataIndex: 'priority', key: 'priority', width: 80, render: (p: string) => <Tag color={PRIORITY_MAP[p]?.color}>{PRIORITY_MAP[p]?.label}</Tag>, filters: Object.entries(PRIORITY_MAP).map(([k, v]) => ({ text: v.label, value: k })), onFilter: (v: any, r: Task) => r.priority === v },
+    { title: t('dash_type'), dataIndex: 'type', key: 'type', width: 80, render: (type: string) => <Tag color={TASK_TYPE_MAP[type]?.color}>{TASK_TYPE_MAP[type]?.label}</Tag>, filters: Object.entries(TASK_TYPE_MAP).map(([k, v]) => ({ text: v.label, value: k })), onFilter: (v: boolean | React.Key, r: Task) => r.type === v },
+    { title: t('dash_priority'), dataIndex: 'priority', key: 'priority', width: 80, render: (p: string) => <Tag color={PRIORITY_MAP[p]?.color}>{PRIORITY_MAP[p]?.label}</Tag>, filters: Object.entries(PRIORITY_MAP).map(([k, v]) => ({ text: v.label, value: k })), onFilter: (v: boolean | React.Key, r: Task) => r.priority === v },
     { title: t('cust_status'), dataIndex: 'status', key: 'status', width: 90, render: (s: string, r: Task) => <Tag color={isOverdue(r) ? 'error' : STATUS_MAP[s]?.color}>{isOverdue(r) ? t('task_overdue') : STATUS_MAP[s]?.label}</Tag> },
     { title: t('cust_owner'), dataIndex: 'assigned_to_name', key: 'assigned_to_name', width: 90 },
     {
@@ -168,9 +181,9 @@ const TaskList: React.FC = () => {
         </Space>
       )
     }
-  ];
+  ], [t, TASK_TYPE_MAP, PRIORITY_MAP, STATUS_MAP, isOverdue, openDetail, handleStart, handleComplete, openEdit, handleDelete]);
 
-  const rowSelection = { selectedRowKeys, onChange: setSelectedRowKeys, getCheckboxProps: (r: Task) => ({ disabled: r.status === 'completed' || r.status === 'cancelled' }) };
+  const rowSelection = useMemo(() => ({ selectedRowKeys, onChange: setSelectedRowKeys, getCheckboxProps: (r: Task) => ({ disabled: r.status === 'completed' || r.status === 'cancelled' }) }), [selectedRowKeys]);
 
   return (
     <div>
