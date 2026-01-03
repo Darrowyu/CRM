@@ -1,0 +1,8 @@
+# 此文件夹用于存放系统Logo资源
+# This folder is for storing system logo assets
+#
+# 支持的格式 / Supported formats:
+# - logo.svg (推荐/Recommended - 矢量图，任意缩放)
+# - logo.png (位图，建议512x512或更高分辨率)
+# - logo-dark.svg/png (深色模式Logo)
+# - favicon.ico (浏览器标签图标，建议32x32)

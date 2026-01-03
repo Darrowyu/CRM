@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Makrite CRM</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background-color: #f8fafc;
+      }
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      /* 彻底禁用菜单所有动画，消除闪烁抖动 */
+      .no-flash-menu .ant-menu-item,
+      .no-flash-menu .ant-menu-item-selected,
+      .no-flash-menu .ant-menu-item-active,
+      .no-flash-menu .ant-menu-item::after,
+      .no-flash-menu .ant-menu-item-selected::after,
+      .no-flash-menu .ant-menu-item-selected::before,
+      .no-flash-menu .ant-menu-inline .ant-menu-item::after { 
+        transition: none !important; 
+        animation: none !important;
+      }
+      .no-flash-menu .ant-menu-item-selected { 
+        background: #2563eb !important; 
+        border-radius: 8px !important;
+      }
+      .no-flash-menu .ant-menu-inline .ant-menu-item-selected::after { 
+        display: none !important; /* 隐藏右侧蓝色指示条 */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

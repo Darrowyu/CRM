@@ -1,0 +1,7 @@
+{
+  "name": "Makrite AI CRM",
+  "description": "A professional AI-powered CRM system for manufacturing, featuring customer management, intelligent sales pipeline, tiered quoting, and data analytics.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
