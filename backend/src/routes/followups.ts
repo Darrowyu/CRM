@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { followUpRepository } from '../repositories/FollowUpRepository.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -31,7 +32,7 @@ router.post('/', async (req: AuthRequest, res: Response) => { // 创建跟进记
     });
     return res.status(201).json(followUp);
   } catch (error) {
-    console.error('Create follow-up error:', error);
+    logger.error(`Create follow-up error: ${error}`);
     return res.status(500).json({ error: 'SERVER_ERROR', message: '服务器错误' });
   }
 });

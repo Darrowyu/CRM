@@ -1,5 +1,6 @@
 import { customerRepository } from '../repositories/CustomerRepository.js';
 import { INACTIVE_DAYS_LIMIT } from './CustomerService.js';
+import logger from '../utils/logger.js';
 
 export const returnInactiveCustomers = async (): Promise<number> => { // 自动回退超期客户到公海
   const inactiveCustomers = await customerRepository.findInactiveCustomers(INACTIVE_DAYS_LIMIT);
@@ -10,7 +11,7 @@ export const returnInactiveCustomers = async (): Promise<number> => { // 自动�
     returnedCount++;
   }
   
-  console.log(`[Scheduler] Returned ${returnedCount} inactive customers to public pool`);
+  logger.info(`[Scheduler] Returned ${returnedCount} inactive customers to public pool`);
   return returnedCount;
 };
 
@@ -29,5 +30,5 @@ export const startScheduler = () => { // 启动定时任务（每天凌晨2点�
   };
   
   runDaily();
-  console.log('[Scheduler] Auto-return scheduler started');
+  logger.info('[Scheduler] Auto-return scheduler started');
 };

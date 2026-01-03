@@ -3,6 +3,7 @@ import cors from 'cors'; // 跨域支持
 import dotenv from 'dotenv'; // 环境变量
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from './utils/logger.js';
 import { pool, testConnection } from './db/connection.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
@@ -91,7 +92,7 @@ app.use(errorHandler); // 全局错误处理
 
 const startServer = async () => {
   await testConnection(); // 测试数据库连接
-  app.listen(PORT, () => console.log(`Backend server running on http://localhost:${PORT}`));
+  app.listen(PORT, () => logger.info(`Backend server running on http://localhost:${PORT}`));
 };
 
 startServer();

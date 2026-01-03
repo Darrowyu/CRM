@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '../types/index.js';
+import logger from '../utils/logger.js';
 
 const getJwtSecret = (): string => { // 获取JWT密钥（强制要求环境变量）
   const secret = process.env.JWT_SECRET;
   if (!secret || secret === 'default_secret' || secret.length < 32) {
     if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET must be set in production with at least 32 characters');
-    console.warn('⚠️ WARNING: Using weak JWT_SECRET. Set a strong secret in production!');
+    logger.warn('Using weak JWT_SECRET. Set a strong secret in production!');
     return 'dev_secret_key_for_local_development_only_32chars';
   }
   return secret;

@@ -32,7 +32,7 @@ router.post('/predict-win-rate/:id', async (req: AuthRequest, res: Response) => 
       FROM opportunities o JOIN customers c ON o.customer_id = c.id WHERE o.id = $1`, [id]);
     if (!oppRes.rows[0]) return res.status(404).json({ message: '商机不存在' });
     const opp = oppRes.rows[0];
-    const prediction = await aiService.predictWinRate(opp, { company_name: opp.company_name, industry: opp.industry, order_count: opp.order_count }, { lang });
+    const prediction = await aiService.predictWinRate(opp, { id: opp.customer_id, company_name: opp.company_name, industry: opp.industry, order_count: opp.order_count }, { lang });
     res.json(prediction);
   } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
@@ -72,7 +72,7 @@ router.post('/contract-risk/:id', async (req: AuthRequest, res: Response) => { /
       JOIN customers c ON ct.customer_id = c.id LEFT JOIN customer_scores cs ON c.id = cs.customer_id WHERE ct.id = $1`, [id]);
     if (!contractRes.rows[0]) return res.status(404).json({ message: '合同不存在' });
     const contract = contractRes.rows[0];
-    const risk = await aiService.analyzeContractRisk(contract, { company_name: contract.company_name, grade: contract.grade }, { lang });
+    const risk = await aiService.analyzeContractRisk(contract, { id: contract.customer_id, company_name: contract.company_name, grade: contract.grade }, { lang });
     res.json(risk);
   } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

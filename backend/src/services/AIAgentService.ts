@@ -1,8 +1,10 @@
 import { pool } from '../db/connection.js'; // 数据库连接
 import { aiService } from './AIService.js'; // AI服务
 
-export interface AgentTask { type: string; params: Record<string, any>; result?: any; status: 'pending' | 'running' | 'completed' | 'failed'; error?: string; }
+export interface AgentTask { type: string; params: Record<string, unknown>; result?: unknown; status: 'pending' | 'running' | 'completed' | 'failed'; error?: string; }
 export interface AgentWorkflow { id: string; name: string; tasks: AgentTask[]; status: 'pending' | 'running' | 'completed' | 'failed'; createdAt: Date; }
+export interface StaleCustomer { id: string; company_name: string; last_follow?: string; }
+export interface AtRiskOpportunity { id: string; name: string; amount: number; probability?: number; company_name: string; }
 
 const workflows: Map<string, AgentWorkflow> = new Map(); // 内存存储工作流
 
@@ -23,19 +25,19 @@ export class AIAgentService {
     return workflow;
   }
 
-  private async executeTask(task: AgentTask): Promise<any> { // 执行单个任务
+  private async executeTask(task: AgentTask): Promise<unknown> { // 执行单个任务
     switch (task.type) {
-      case 'analyze_stale_customers': return this.analyzeStaleCustomers(task.params.days || 30);
-      case 'batch_follow_up_suggestions': return this.batchFollowUpSuggestions(task.params.customerIds);
+      case 'analyze_stale_customers': return this.analyzeStaleCustomers(Number(task.params.days) || 30);
+      case 'batch_follow_up_suggestions': return this.batchFollowUpSuggestions(task.params.customerIds as string[]);
       case 'pipeline_health_check': return this.pipelineHealthCheck();
-      case 'auto_score_customers': return this.autoScoreCustomers(task.params.limit || 10);
+      case 'auto_score_customers': return this.autoScoreCustomers(Number(task.params.limit) || 10);
       case 'identify_at_risk_opportunities': return this.identifyAtRiskOpportunities();
-      case 'generate_daily_summary': return this.generateDailySummary(task.params.userId);
+      case 'generate_daily_summary': return this.generateDailySummary(task.params.userId as string | undefined);
       default: throw new Error(`未知任务类型: ${task.type}`);
     }
   }
 
-  async analyzeStaleCustomers(days: number): Promise<{ customers: any[]; suggestions: string[] }> { // 分析沉睡客户
+  async analyzeStaleCustomers(days: number): Promise<{ customers: StaleCustomer[]; suggestions: string[] }> { // 分析沉睡客户
     const res = await pool.query(`SELECT c.*, MAX(f.created_at) as last_follow FROM customers c 
       LEFT JOIN follow_ups f ON c.id = f.customer_id GROUP BY c.id 
       HAVING MAX(f.created_at) < NOW() - INTERVAL '${days} days' OR MAX(f.created_at) IS NULL LIMIT 20`);
@@ -51,9 +53,9 @@ export class AIAgentService {
     const results: { customerId: string; suggestion: string }[] = [];
     for (const id of customerIds.slice(0, 10)) {
       const [custRes, followRes, oppRes] = await Promise.all([
-        pool.query('SELECT * FROM customers WHERE id = $1', [id]),
-        pool.query('SELECT * FROM follow_ups WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 1', [id]),
-        pool.query('SELECT * FROM opportunities WHERE customer_id = $1 AND stage NOT IN ($2, $3) LIMIT 1', [id, 'closed_won', 'closed_lost'])
+        pool.query('SELECT id, company_name, industry, source FROM customers WHERE id = $1', [id]),
+        pool.query('SELECT id, content, created_at FROM follow_ups WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 1', [id]),
+        pool.query('SELECT id, name, amount, stage, probability, expected_close_date FROM opportunities WHERE customer_id = $1 AND stage NOT IN ($2, $3) LIMIT 1', [id, 'closed_won', 'closed_lost'])
       ]);
       if (custRes.rows[0]) {
         const suggestion = await aiService.generateFollowUpSuggestion(custRes.rows[0], followRes.rows[0], oppRes.rows[0], { lang: 'zh' });
@@ -78,12 +80,12 @@ export class AIAgentService {
   }
 
   async autoScoreCustomers(limit: number): Promise<{ customerId: string; companyName: string; score: number; grade: string }[]> { // 自动评分客户
-    const custRes = await pool.query('SELECT * FROM customers ORDER BY updated_at DESC LIMIT $1', [limit]);
+    const custRes = await pool.query('SELECT id, company_name, industry, source, grade FROM customers ORDER BY updated_at DESC LIMIT $1', [limit]);
     const results: { customerId: string; companyName: string; score: number; grade: string }[] = [];
     for (const c of custRes.rows) {
       const [orderRes, followRes] = await Promise.all([
-        pool.query('SELECT * FROM orders WHERE customer_id = $1', [c.id]),
-        pool.query('SELECT * FROM follow_ups WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 10', [c.id])
+        pool.query('SELECT id, total_amount, created_at FROM orders WHERE customer_id = $1', [c.id]),
+        pool.query('SELECT id, content, created_at FROM follow_ups WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 10', [c.id])
       ]);
       const scoreResult = await aiService.calculateAIScore(c, orderRes.rows, followRes.rows, { lang: 'zh' });
       results.push({ customerId: c.id, companyName: c.company_name, score: scoreResult.score, grade: scoreResult.grade });
@@ -92,7 +94,7 @@ export class AIAgentService {
     return results;
   }
 
-  async identifyAtRiskOpportunities(): Promise<{ opportunities: any[]; analysis: string }> { // 识别风险商机
+  async identifyAtRiskOpportunities(): Promise<{ opportunities: AtRiskOpportunity[]; analysis: string }> { // 识别风险商机
     const res = await pool.query(`SELECT o.*, c.company_name FROM opportunities o JOIN customers c ON o.customer_id = c.id 
       WHERE o.stage NOT IN ('closed_won', 'closed_lost') AND (o.probability < 40 OR o.expected_close_date < NOW() + INTERVAL '7 days') ORDER BY o.amount DESC LIMIT 10`);
     const opps = res.rows;

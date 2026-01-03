@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { customerRepository } from '../repositories/CustomerRepository.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../types/index.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 router.use(authMiddleware); // 所有路由需要认证
@@ -38,7 +39,7 @@ router.get('/:id/detail', async (req: AuthRequest, res: Response) => { // 获取
     if (!customer) return res.status(404).json({ error: 'NOT_FOUND', message: '客户不存在' });
     return res.json(customer);
   } catch (error) {
-    console.error('Get customer detail error:', error);
+    logger.error(`Get customer detail error: ${error}`);
     return res.status(500).json({ error: 'SERVER_ERROR', message: '服务器错误' });
   }
 });
@@ -188,7 +189,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => { // 更新客户
     if (!customer) return res.status(404).json({ error: 'NOT_FOUND', message: '客户不存在' });
     return res.json(customer);
   } catch (error) {
-    console.error('Update customer error:', error);
+    logger.error(`Update customer error: ${error}`);
     return res.status(500).json({ error: 'SERVER_ERROR', message: '服务器错误' });
   }
 });

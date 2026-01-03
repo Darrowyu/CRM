@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { contactRepository } from '../repositories/ContactRepository.js';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -46,7 +47,7 @@ router.put('/:id', async (req: AuthRequest, res: Response) => { // 更新联系�
     if (!contact) return res.status(404).json({ error: 'NOT_FOUND', message: '联系人不存在' });
     return res.json(contact);
   } catch (error) {
-    console.error('Update contact error:', error);
+    logger.error(`Update contact error: ${error}`);
     return res.status(500).json({ error: 'SERVER_ERROR', message: '服务器错误' });
   }
 });

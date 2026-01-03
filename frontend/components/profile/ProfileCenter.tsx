@@ -30,7 +30,19 @@ const ProfileCenter: React.FC<ProfileCenterProps> = ({ user, onUserUpdate }) => 
   const [twoFactorSecret, setTwoFactorSecret] = useState('');
 
   useEffect(() => { profileForm.setFieldsValue({ name: user.name, phone: (user as any).phone, email: (user as any).email }); }, [user, profileForm]);
-  useEffect(() => { profileService.getPreferences().then(setPrefs); profileService.getLoginHistory().then(setLoginHistory); profileService.getDevices().then(setDevices); }, []);
+  useEffect(() => { // 初始化加载用户偏好和历史数据
+    const loadInitialData = async () => {
+      const [prefsData, historyData, devicesData] = await Promise.all([
+        profileService.getPreferences(),
+        profileService.getLoginHistory(),
+        profileService.getDevices()
+      ]);
+      setPrefs(prefsData);
+      setLoginHistory(historyData);
+      setDevices(devicesData);
+    };
+    loadInitialData();
+  }, []);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { // 上传头像
     const file = e.target.files?.[0];

@@ -1,5 +1,6 @@
 import pg from 'pg'; // PostgreSQL客户端
 import dotenv from 'dotenv';
+import logger from '../utils/logger.js';
 
 dotenv.config();
 
@@ -19,11 +20,11 @@ export const pool = new Pool({
 export const testConnection = async (): Promise<boolean> => {
   try {
     const client = await pool.connect();
-    console.log('✅ PostgreSQL connected successfully');
+    logger.info('PostgreSQL connected successfully');
     client.release();
     return true;
   } catch (error) {
-    console.error('❌ PostgreSQL connection failed:', error);
+    logger.error(`PostgreSQL connection failed: ${error}`);
     return false;
   }
 };
@@ -33,7 +34,7 @@ export const query = async (text: string, params?: unknown[]) => {
   const result = await pool.query(text, params);
   const duration = Date.now() - start;
   if (process.env.NODE_ENV === 'development') {
-    console.log('Query executed', { text: text.substring(0, 50), duration, rows: result.rowCount });
+    logger.debug(`Query executed: ${text.substring(0, 50)}... (${duration}ms, ${result.rowCount} rows)`);
   }
   return result;
 };

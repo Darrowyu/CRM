@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger.js';
 
 export interface AppError extends Error { // 应用错误接口
   statusCode?: number;
@@ -6,7 +7,7 @@ export interface AppError extends Error { // 应用错误接口
 }
 
 export const errorHandler = (err: AppError, req: Request, res: Response, next: NextFunction): void => { // 全局错误处理中间件
-  console.error(`[Error] ${req.method} ${req.path}:`, err.message);
+  logger.error(`[${req.method}] ${req.path}: ${err.message}`);
   const statusCode = err.statusCode || 500;
   const code = err.code || 'SERVER_ERROR';
   const message = process.env.NODE_ENV === 'production' && statusCode === 500 ? '服务器内部错误' : err.message;

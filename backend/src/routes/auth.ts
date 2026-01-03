@@ -4,6 +4,7 @@ import { generateToken, authMiddleware, AuthRequest } from '../middleware/auth.j
 import { toUserResponse } from '../models/User.js';
 import { query } from '../db/connection.js';
 import { getUserPermissions } from '../middleware/authorize.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -34,8 +35,8 @@ router.post('/login', async (req, res: Response) => { // 用户登录
       const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded) || req.socket.remoteAddress || '';
       const ua = req.headers['user-agent'] || '';
       const result = await query(`INSERT INTO operation_logs (user_id, action, ip_address, user_agent) VALUES ($1, $2, $3, $4) RETURNING id`, [user.id, 'login', ip, ua]);
-      console.log('[Auth] Login log created:', result.rows[0]?.id);
-    } catch (e) { console.error('[Auth] Log error:', e); }
+      logger.debug(`[Auth] Login log created: ${result.rows[0]?.id}`);
+    } catch (e) { logger.error(`[Auth] Log error: ${e}`); }
 
     return res.json({ token, user: toUserResponse(user), permissions });
   } catch (error) {

@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai'; // Gemini SDK
 import OpenAI from 'openai'; // OpenAI SDK (兼容DeepSeek)
 import { ProxyAgent, setGlobalDispatcher, getGlobalDispatcher, Dispatcher } from 'undici'; // 代理支持
+import { CustomerForAI, OrderForAI, FollowUpForAI, OpportunityForAI, ContractForAI, ProductForQuote, QuoteForAI, PipelineSummary } from '../types/ai.js';
+import logger from '../utils/logger.js';
 
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY; // 读取代理配置
 const proxyDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : null; // 创建代理Dispatcher
@@ -71,10 +73,10 @@ export class AIService {
         return res.choices[0]?.message?.content || '';
       }
       return cfg?.lang === 'zh' ? 'AI服务未配置，请在设置中配置API Key' : 'AI service not configured';
-    } catch (e: any) { console.error('AI Error:', e.message); return cfg?.lang === 'zh' ? `AI服务暂时不可用: ${e.message}` : `AI service unavailable: ${e.message}`; }
+    } catch (e: unknown) { const msg = e instanceof Error ? e.message : String(e); logger.error(`AI Error: ${msg}`); return cfg?.lang === 'zh' ? `AI服务暂时不可用: ${msg}` : `AI service unavailable: ${msg}`; }
   }
 
-  async analyzeCustomer(customer: any, orders: any[], followUps: any[], cfg?: AIConfig): Promise<string> { // 客户智能分析
+  async analyzeCustomer(customer: CustomerForAI, orders: OrderForAI[], followUps: FollowUpForAI[], cfg?: AIConfig): Promise<string> { // 客户智能分析
     const prompt = `你是CRM智能顾问。分析以下客户数据并给出洞察：
 客户：${customer.company_name}，行业：${customer.industry || '未知'}，来源：${customer.source || '未知'}
 订单历史：${orders.length}笔，总金额：¥${orders.reduce((s, o) => s + Number(o.total_amount || 0), 0).toLocaleString()}
@@ -84,7 +86,7 @@ export class AIService {
     return this.generate(prompt, cfg);
   }
 
-  async predictWinRate(opp: any, customer: any, cfg?: AIConfig): Promise<{ rate: number; factors: string; suggestions: string }> { // 商机赢率预测
+  async predictWinRate(opp: OpportunityForAI, customer: CustomerForAI, cfg?: AIConfig): Promise<{ rate: number; factors: string; suggestions: string }> { // 商机赢率预测
     const prompt = `你是销售预测专家。分析商机赢率：
 商机：${opp.name}，金额：¥${opp.amount}，当前阶段：${opp.stage}
 客户：${customer.company_name}，历史成交：${customer.order_count || 0}笔
@@ -95,7 +97,7 @@ export class AIService {
     catch { return { rate: opp.probability || 50, factors: '数据不足', suggestions: res }; }
   }
 
-  async generateFollowUpSuggestion(customer: any, lastFollowUp: any, opp: any, cfg?: AIConfig): Promise<string> { // 跟进建议生成
+  async generateFollowUpSuggestion(customer: CustomerForAI, lastFollowUp: FollowUpForAI | null, opp: OpportunityForAI | null, cfg?: AIConfig): Promise<string> { // 跟进建议生成
     const prompt = `你是销售教练。根据以下信息生成跟进建议：
 客户：${customer.company_name}
 上次跟进：${lastFollowUp?.content || '无记录'}（${lastFollowUp?.created_at?.split('T')[0] || ''}）
@@ -105,7 +107,7 @@ export class AIService {
     return this.generate(prompt, cfg);
   }
 
-  async generateQuoteSuggestion(customer: any, products: any[], quotes: any[], cfg?: AIConfig): Promise<string> { // 智能报价建议
+  async generateQuoteSuggestion(customer: CustomerForAI, products: ProductForQuote[], quotes: QuoteForAI[], cfg?: AIConfig): Promise<string> { // 智能报价建议
     const avgDiscount = quotes.length > 0 ? quotes.reduce((s, q) => s + (q.discount || 0), 0) / quotes.length : 0;
     const prompt = `你是定价策略专家。给出报价建议：
 客户：${customer.company_name}，历史报价${quotes.length}次，平均折扣${avgDiscount.toFixed(1)}%
@@ -115,7 +117,7 @@ export class AIService {
     return this.generate(prompt, cfg);
   }
 
-  async analyzeContractRisk(contract: any, customer: any, cfg?: AIConfig): Promise<{ riskLevel: string; risks: string[]; suggestions: string }> { // 合同风险分析
+  async analyzeContractRisk(contract: ContractForAI, customer: CustomerForAI, cfg?: AIConfig): Promise<{ riskLevel: string; risks: string[]; suggestions: string }> { // 合同风险分析
     const prompt = `你是合同风险分析师。评估合同风险：
 合同金额：¥${contract.amount}，期限：${contract.start_date}至${contract.end_date}
 客户：${customer.company_name}，信用等级：${customer.grade || '未评级'}
@@ -137,7 +139,7 @@ export class AIService {
     catch { return { answer: res, needsExecution: false }; }
   }
 
-  async analyzePipeline(opps: any[], summary: any, cfg?: AIConfig): Promise<string> { // 销售管道分析
+  async analyzePipeline(opps: OpportunityForAI[], summary: PipelineSummary, cfg?: AIConfig): Promise<string> { // 销售管道分析
     const enriched = opps.map(o => ({ customer: o.customer_name, stage: o.stage, amount: Number(o.amount) || 0, probability: o.probability, daysToClose: o.expected_close_date ? Math.ceil((new Date(o.expected_close_date).getTime() - Date.now()) / 86400000) : null }));
     const prompt = `${getLang(cfg?.lang || 'zh')}
 你是资深销售顾问，为制造业公司"Makrite"进行销售管道审计。
@@ -162,7 +164,7 @@ export class AIService {
     return this.generate(prompt, cfg);
   }
 
-  async calculateAIScore(customer: any, orders: any[], followUps: any[], cfg?: AIConfig): Promise<{ score: number; grade: string; analysis: string }> { // AI驱动客户评分
+  async calculateAIScore(customer: CustomerForAI, orders: OrderForAI[], followUps: FollowUpForAI[], cfg?: AIConfig): Promise<{ score: number; grade: string; analysis: string }> { // AI驱动客户评分
     const totalAmount = orders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
     const daysSinceOrder = orders[0]?.created_at ? Math.ceil((Date.now() - new Date(orders[0].created_at).getTime()) / 86400000) : 999;
     const prompt = `你是客户价值评估专家。评估客户：
